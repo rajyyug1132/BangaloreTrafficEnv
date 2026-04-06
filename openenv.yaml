@@ -1,0 +1,49 @@
+name: BangaloreTrafficEnv
+version: "1.0"
+description: >
+  A real-world RL environment simulating a Bangalore traffic intersection.
+  An AI agent learns to dynamically control traffic signals to minimize
+  congestion across North, South, East and West lanes.
+
+author: your-hf-username
+
+observation_space:
+  type: array
+  shape: [6]
+  description: >
+    [cars_north, cars_south, cars_east, cars_west, green_phase, time_step]
+
+action_space:
+  type: discrete
+  n: 2
+  description: >
+    0 = North-South green, 1 = East-West green
+
+reward:
+  description: Negative sum of all waiting cars. Higher = less congestion.
+  range: [-inf, 0]
+
+score:
+  description: Normalised reward in 0.0–1.0 range for grader.
+  range: [0.0, 1.0]
+
+tasks:
+  - id: rush_hour_control
+    description: Minimise congestion during peak rush hour (100 steps)
+    grader: score
+  - id: off_peak_control
+    description: Minimise congestion during off-peak hours (100 steps)
+    grader: score
+  - id: sustained_flow
+    description: Maintain average queue below 5 cars per lane over 100 steps
+    grader: score
+
+endpoints:
+  reset: POST /reset
+  step:  POST /step
+  state: GET  /state
+
+runtime:
+  language: python
+  entry: app.py
+  port: 7860
