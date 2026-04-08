@@ -1,31 +1,27 @@
 import os
-import json
 import sys
 import requests
 from openai import OpenAI
 
-# Environment variables — mandatory per checklist
 API_BASE_URL = os.getenv("API_BASE_URL", "https://RyM1132-bangaloretrafficenv.hf.space")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-HF_TOKEN = os.getenv("HF_TOKEN")  # No default — mandatory
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 client = OpenAI(api_key=HF_TOKEN, base_url=API_BASE_URL)
 
 def run_inference(task_id="rush_hour_control"):
-    print(json.dumps({
-        "type": "START",
-        "task_id": task_id,
-        "env": "BangaloreTrafficEnv"
-    }))
+    # STRICT [START] format
+    print(f"[START] task={task_id} env=BangaloreTrafficEnv model={MODEL_NAME}")
     
     res = requests.post(f"{API_BASE_URL}/reset")
     state = res.json()["state"]
     
     total_reward = 0
     scores = []
+    raw_rewards = []
     
     for step_num in range(100):
-        # Use greedy logic directly (LLM-ready structure)
+        # Baseline greedy heuristic
         action = 0 if (state[0] + state[1]) > (state[2] + state[3]) else 1
         
         res = requests.post(f"{API_BASE_URL}/step", json={"action": action})
@@ -38,28 +34,20 @@ def run_inference(task_id="rush_hour_control"):
         
         total_reward += reward
         scores.append(score)
+        raw_rewards.append(reward)
         
-        print(json.dumps({
-            "type": "STEP",
-            "step": step_num,
-            "action": action,
-            "reward": reward,
-            "score": score,
-            "done": done
-        }))
+        # STRICT [STEP] format
+        print(f"[STEP] step={step_num} action={action} reward={reward:.2f} done={str(done).lower()} error=null")
         
         if done:
             break
             
     final_score = sum(scores) / len(scores)
+    success = final_score > 0.8
+    rewards_str = ",".join([f"{r:.2f}" for r in raw_rewards])
     
-    print(json.dumps({
-        "type": "END",
-        "task_id": task_id,
-        "total_reward": total_reward,
-        "final_score": round(final_score, 4),
-        "steps_completed": step_num + 1
-    }))
+    # STRICT [END] format
+    print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={rewards_str}")
 
 if __name__ == "__main__":
     task = sys.argv[1] if len(sys.argv) > 1 else "rush_hour_control"
