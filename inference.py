@@ -1,13 +1,12 @@
 import os
+import sys
 import requests
 from openai import OpenAI
 
 # 1. YOUR HUGGING FACE ENVIRONMENT
-# Hardcoded so it does not conflict with the Hackathon's Proxy URL
 ENV_URL = "https://rym1132-bangaloretrafficenv.hf.space"
 
-# 2. STRICT COMPLIANCE: INITIALIZE OPENAI CLIENT EXACTLY AS REQUESTED
-# The validator requires os.environ for these specific keys to prove you are using their proxy.
+# 2. STRICT COMPLIANCE: INITIALIZE OPENAI CLIENT
 client = OpenAI(
     base_url=os.environ["API_BASE_URL"],
     api_key=os.environ["API_KEY"]
@@ -33,7 +32,6 @@ def get_llm_action(state):
         )
         return int(response.choices[0].message.content.strip())
     except Exception as e:
-        # Loud error so if the proxy rejects us, we can read exactly WHY in the validator log
         print(f"\n[CRITICAL LLM ERROR] The proxy rejected the call: {str(e)}\n")
         return 0 if state[0] + state[1] > state[2] + state[3] else 1
 
@@ -41,7 +39,6 @@ def run_inference(task_id="rush_hour_control"):
     print(f"[START] task_id={task_id} total_steps=100")
     
     try:
-        # Reset with network safety
         res = requests.post(f"{ENV_URL}/reset", timeout=10)
         res.raise_for_status() 
         data = res.json()
@@ -50,7 +47,30 @@ def run_inference(task_id="rush_hour_control"):
         total_reward = 0
         success = True
         step_num = 0
-# Final Score Calculation - STRICTLY between 0 and 1
+
+        for step_num in range(100):
+            action = get_llm_action(state)
+            
+            try:
+                res = requests.post(f"{ENV_URL}/step", json={"action": action}, timeout=10)
+                res.raise_for_status()
+                data = res.json()
+                
+                state = data.get("state", state) 
+                reward = data.get("reward", 0.0)
+                done = data.get("done", False)
+                
+                total_reward += reward
+                print(f"[STEP] step={step_num} action={action} reward={reward:.2f} done={str(done).lower()} error=null")
+                
+                if done:
+                    break
+            except Exception as e:
+                print(f"[STEP] step={step_num} action={action} reward=0.0 done=true error={str(e)}")
+                success = False
+                break
+
+        # Final Score Calculation - STRICTLY between 0 and 1
         raw_score = (total_reward + 5000) / 5000
         final_score = max(0.0001, min(0.9999, raw_score))
         print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={total_reward:.2f}")
@@ -60,4 +80,9 @@ def run_inference(task_id="rush_hour_control"):
         print(f"[END] success=false steps=0 score=0.0001 rewards=0.0 error={str(e)}")
 
 if __name__ == "__main__":
-    run_inference(task_id="rush_hour_control")
+    if len(sys.argv) > 1:
+        current_task = sys.argv[1]
+    else:
+        current_task = "rush_hour_control"
+        
+    run_inference(task_id=current_task)
