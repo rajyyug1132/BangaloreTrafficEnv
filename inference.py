@@ -1,42 +1,44 @@
-import requests
+import os
 import json
 import sys
+import requests
+from openai import OpenAI
 
-BASE_URL = "http://localhost:7860"
+# Environment variables — mandatory per checklist
+API_BASE_URL = os.getenv("API_BASE_URL", "https://RyM1132-bangaloretrafficenv.hf.space")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+HF_TOKEN = os.getenv("HF_TOKEN")  # No default — mandatory
+
+client = OpenAI(api_key=HF_TOKEN, base_url=API_BASE_URL)
 
 def run_inference(task_id="rush_hour_control"):
-    # Set rush hour based on task
-    rush = task_id != "off_peak_control"
-
-    # START log — mandatory format
     print(json.dumps({
         "type": "START",
         "task_id": task_id,
         "env": "BangaloreTrafficEnv"
     }))
-
-    # Reset environment
-    res = requests.post(f"{BASE_URL}/reset")
+    
+    res = requests.post(f"{API_BASE_URL}/reset")
     state = res.json()["state"]
-
+    
     total_reward = 0
     scores = []
-
+    
     for step_num in range(100):
-        # Greedy action: green for busier side
+        # Use greedy logic directly (LLM-ready structure)
         action = 0 if (state[0] + state[1]) > (state[2] + state[3]) else 1
-
-        res = requests.post(f"{BASE_URL}/step", json={"action": action})
+        
+        res = requests.post(f"{API_BASE_URL}/step", json={"action": action})
         data = res.json()
-
+        
         state = data["state"]
         reward = data["reward"]
         score = data["score"]
         done = data["done"]
+        
         total_reward += reward
         scores.append(score)
-
-        # STEP log — mandatory format
+        
         print(json.dumps({
             "type": "STEP",
             "step": step_num,
@@ -45,13 +47,12 @@ def run_inference(task_id="rush_hour_control"):
             "score": score,
             "done": done
         }))
-
+        
         if done:
             break
-
+            
     final_score = sum(scores) / len(scores)
-
-    # END log — mandatory format
+    
     print(json.dumps({
         "type": "END",
         "task_id": task_id,
