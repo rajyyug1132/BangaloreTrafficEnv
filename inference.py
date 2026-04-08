@@ -11,7 +11,7 @@ client = OpenAI(api_key=HF_TOKEN, base_url=API_BASE_URL)
 
 def run_inference(task_id="rush_hour_control"):
     # STRICT [START] format
-    print(f"[START] task={task_id} env=BangaloreTrafficEnv model={MODEL_NAME}")
+    print(f"[START] task_id={task_id} total_steps=100")
     
     res = requests.post(f"{API_BASE_URL}/reset")
     state = res.json()["state"]
@@ -37,7 +37,7 @@ def run_inference(task_id="rush_hour_control"):
         raw_rewards.append(reward)
         
         # STRICT [STEP] format
-        print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={rewards_str}")   
+        print(f"[END] success={str(success).lower()} steps={step_num} score={final_score:.4f} rewards={rewards_str}")   
         
         if done:
             break
