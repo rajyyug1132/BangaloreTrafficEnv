@@ -37,7 +37,7 @@ def run_inference(task_id="rush_hour_control"):
         raw_rewards.append(reward)
         
         # STRICT [STEP] format
-        print(f"[STEP] step={step_num} action={action} reward={reward:.2f} done={str(done).lower()} error=null")
+        print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={rewards_str}")   
         
         if done:
             break
