@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from traffic_env import BangaloreTrafficEnv
+from server.traffic_env import BangaloreTrafficEnv
 import numpy as np
 
 app = FastAPI(title="BangaloreTrafficEnv")
@@ -50,3 +50,6 @@ def step(req: StepRequest):
 @app.get("/state", response_model=StateResponse)
 def get_state():
     return {"state": env.state().tolist()}
+def main():
+    import uvicorn
+    uvicorn.run("server.app:app", host="0.0.0.0", port=7860)
