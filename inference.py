@@ -3,11 +3,11 @@ import requests
 from openai import OpenAI
 
 # 1. YOUR HUGGING FACE ENVIRONMENT
-# Hardcoded so it doesn't conflict with the Hackathon's Proxy URL
+# Hardcoded so it does not conflict with the Hackathon's Proxy URL
 ENV_URL = "https://rym1132-bangaloretrafficenv.hf.space"
 
 # 2. STRICT COMPLIANCE: INITIALIZE OPENAI CLIENT EXACTLY AS REQUESTED
-# The validator requires os.environ for these specific keys.
+# The validator requires os.environ for these specific keys to prove you are using their proxy.
 client = OpenAI(
     base_url=os.environ["API_BASE_URL"],
     api_key=os.environ["API_KEY"]
@@ -32,15 +32,16 @@ def get_llm_action(state):
             max_tokens=5
         )
         return int(response.choices[0].message.content.strip())
-    except Exception:
-        # Fallback if the LLM hiccups or returns weird text
+    except Exception as e:
+        # Loud error so if the proxy rejects us, we can read exactly WHY in the validator log
+        print(f"\n[CRITICAL LLM ERROR] The proxy rejected the call: {str(e)}\n")
         return 0 if state[0] + state[1] > state[2] + state[3] else 1
 
 def run_inference(task_id="rush_hour_control"):
     print(f"[START] task_id={task_id} total_steps=100")
     
     try:
-        # Reset with safety
+        # Reset with network safety
         res = requests.post(f"{ENV_URL}/reset", timeout=10)
         res.raise_for_status() 
         data = res.json()
@@ -48,12 +49,13 @@ def run_inference(task_id="rush_hour_control"):
         
         total_reward = 0
         success = True
+        step_num = 0
 
         for step_num in range(100):
-            # THE FIX: Call the LLM to get the action
+            # ACTUAL API CALL HAPPENS HERE
             action = get_llm_action(state)
             
-            # Step the environment with safety
+            # Step the environment with network safety
             try:
                 res = requests.post(f"{ENV_URL}/step", json={"action": action}, timeout=10)
                 res.raise_for_status()
