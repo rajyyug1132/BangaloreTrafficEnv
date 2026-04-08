@@ -3,7 +3,7 @@ import sys
 import requests
 from openai import OpenAI
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://RyM1132-bangaloretrafficenv.hf.space")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://rym1132-bangaloretrafficenv.hf.space")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -13,8 +13,17 @@ def run_inference(task_id="rush_hour_control"):
     # STRICT [START] format
     print(f"[START] task_id={task_id} total_steps=100")
     
-    res = requests.post(f"{API_BASE_URL}/reset")
-    state = res.json()["state"]
+    # Robust reset call
+res = requests.post(f"{API_BASE_URL}/reset")
+data = res.json()
+
+# Check if 'state' actually exists to avoid the KeyError
+if "state" in data:
+    state = data["state"]
+else:
+    # Fallback to a default state if the server fails
+    print(f"[DEBUG] Server error: {data}")
+    state = [0, 0, 0, 0, 0, 0]
     
     total_reward = 0
     scores = []
