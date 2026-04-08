@@ -1,9 +1,11 @@
+---
 title: BangaloreTrafficEnv
-emoji: 👁
-colorFrom: indigo
-colorTo: gray
+emoji: 🚦
+colorFrom: green
+colorTo: red
 sdk: docker
 pinned: false
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+# BangaloreTrafficEnv
+A real-world RL environment simulating a Bangalore traffic intersection.
