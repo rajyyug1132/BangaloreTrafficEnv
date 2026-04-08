@@ -165,6 +165,7 @@ dependencies = [
     { name = "openai" },
     { name = "openenv-core" },
     { name = "pydantic" },
+    { name = "requests" },
     { name = "uvicorn" },
 ]
 
@@ -176,6 +177,7 @@ requires-dist = [
     { name = "openai" },
     { name = "openenv-core", specifier = ">=0.2.0" },
     { name = "pydantic" },
+    { name = "requests" },
     { name = "uvicorn" },
 ]
 
