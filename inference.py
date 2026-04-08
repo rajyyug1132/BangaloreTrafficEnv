@@ -1,21 +1,47 @@
 import os
-import sys
 import requests
 from openai import OpenAI
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://rym1132-bangaloretrafficenv.hf.space")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-# Safely default the token so it never crashes locally
-HF_TOKEN = os.getenv("HF_TOKEN", "dummy_token") 
+# 1. YOUR HUGGING FACE ENVIRONMENT
+# Hardcoded so it doesn't conflict with the Hackathon's Proxy URL
+ENV_URL = "https://rym1132-bangaloretrafficenv.hf.space"
 
-client = OpenAI(api_key=HF_TOKEN, base_url=API_BASE_URL)
+# 2. STRICT COMPLIANCE: INITIALIZE OPENAI CLIENT EXACTLY AS REQUESTED
+# The validator requires os.environ for these specific keys.
+client = OpenAI(
+    base_url=os.environ["API_BASE_URL"],
+    api_key=os.environ["API_KEY"]
+)
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+
+def get_llm_action(state):
+    """Ask the LLM proxy to decide the action based on traffic state."""
+    prompt = f"""
+    You are an intelligent traffic light controller.
+    The current traffic queue lengths are: {state}.
+    Action 0: Green for North-South.
+    Action 1: Green for East-West.
+    If North-South queues (index 0,1) are longer, output 0. Otherwise output 1.
+    Respond with ONLY a single integer (0 or 1).
+    """
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=5
+        )
+        return int(response.choices[0].message.content.strip())
+    except Exception:
+        # Fallback if the LLM hiccups or returns weird text
+        return 0 if state[0] + state[1] > state[2] + state[3] else 1
 
 def run_inference(task_id="rush_hour_control"):
     print(f"[START] task_id={task_id} total_steps=100")
     
     try:
         # Reset with safety
-        res = requests.post(f"{API_BASE_URL}/reset", timeout=10)
+        res = requests.post(f"{ENV_URL}/reset", timeout=10)
         res.raise_for_status() 
         data = res.json()
         state = data.get("state", [0, 0, 0, 0, 0, 0])
@@ -24,12 +50,12 @@ def run_inference(task_id="rush_hour_control"):
         success = True
 
         for step_num in range(100):
-            # Your simple greedy logic
-            action = 0 if state[0] + state[1] > state[2] + state[3] else 1
+            # THE FIX: Call the LLM to get the action
+            action = get_llm_action(state)
             
-            # Step with safety WRAPPER
+            # Step the environment with safety
             try:
-                res = requests.post(f"{API_BASE_URL}/step", json={"action": action}, timeout=10)
+                res = requests.post(f"{ENV_URL}/step", json={"action": action}, timeout=10)
                 res.raise_for_status()
                 data = res.json()
                 
@@ -52,9 +78,8 @@ def run_inference(task_id="rush_hour_control"):
         print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={total_reward:.2f}")
 
     except Exception as e:
-        # This handles a total failure if the server is unreachable
+        # Full failure handling
         print(f"[END] success=false steps=0 score=0.0000 rewards=0.0 error={str(e)}")
 
-# This tells Python to actually run the code
 if __name__ == "__main__":
     run_inference(task_id="rush_hour_control")
