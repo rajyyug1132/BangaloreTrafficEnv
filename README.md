@@ -1,4 +1,3 @@
----
 title: BangaloreTrafficEnv
 emoji: 👁
 colorFrom: indigo
