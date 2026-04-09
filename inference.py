@@ -1,91 +1,213 @@
+"""
+Inference script for BangaloreTrafficEnv
+=========================================
+Follows the mandatory STDOUT format:
+    [START] task=<task_name> env=<benchmark> model=<model_name>
+    [STEP]  step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
+    [END]   success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>
+"""
+
 import os
 import sys
+import textwrap
+from typing import List, Optional
+
 import requests
 from openai import OpenAI
 
-# 1. YOUR HUGGING FACE ENVIRONMENT
-ENV_URL = "https://rym1132-bangaloretrafficenv.hf.space"
+# ── Environment & model configuration ────────────────────────────────────────
+# Mandatory variables (as required by the evaluation platform)
+API_BASE_URL     = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME       = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN         = os.getenv("HF_TOKEN")
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")   # optional: used only with from_docker_image()
 
-# 2. STRICT PROXY COMPLIANCE
-# We MUST use os.environ to prove to the validator we are using their LiteLLM proxy
-client = OpenAI(
-    base_url=os.environ["API_BASE_URL"],
-    api_key=os.environ["API_KEY"]
-)
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+# Derived helpers
+ENV_URL  = os.getenv("ENV_URL", "https://rym1132-bangaloretrafficenv.hf.space")
+API_KEY  = HF_TOKEN or os.getenv("API_KEY", "")
+BENCHMARK = "BangaloreTrafficEnv"
 
-def get_llm_action(state):
-    """Ask the LLM proxy to decide the action based on traffic state."""
-    prompt = f"""
-    You are an intelligent traffic light controller.
-    The current traffic queue lengths are: {state}.
-    Action 0: Green for North-South.
-    Action 1: Green for East-West.
-    If North-South queues (index 0,1) are longer, output 0. Otherwise output 1.
-    Respond with ONLY a single integer (0 or 1).
+MAX_STEPS = 100
+SUCCESS_SCORE_THRESHOLD = 0.5   # normalised score in [0, 1]
+
+# Worst-case per step: 4 lanes × ~20 cars = 80 waiting → reward ≈ −80
+# Best case: reward = 0  →  score = 1.0
+MAX_PENALTY_PER_STEP = 80.0
+
+SYSTEM_PROMPT = textwrap.dedent(
     """
+    You are an intelligent traffic light controller at a busy Bangalore intersection.
+    You observe queue lengths for four lanes: [North, South, East, West].
+    You must choose ONE action each step:
+        0 → Give Green light to North-South lanes
+        1 → Give Green light to East-West lanes
+    Always choose the action that clears the longest waiting queues.
+    Respond with ONLY a single digit: 0 or 1. No explanation.
+    """
+).strip()
+
+
+# ── Mandatory log helpers (mirror the sample exactly) ────────────────────────
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val  = str(done).lower()
+    print(
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
+        flush=True,
+    )
+
+
+# ── LLM decision ─────────────────────────────────────────────────────────────
+def build_user_prompt(step: int, state: list, last_reward: float, task_id: str) -> str:
+    ns_queue = state[0] + state[1]
+    ew_queue = state[2] + state[3]
+    return textwrap.dedent(
+        f"""
+        Task: {task_id}
+        Step: {step}
+        Traffic queues → North: {state[0]}, South: {state[1]}, East: {state[2]}, West: {state[3]}
+        NS total: {ns_queue}  |  EW total: {ew_queue}
+        Last reward: {last_reward:.2f}
+        Choose action 0 (NS green) or 1 (EW green). Reply with ONLY 0 or 1.
+        """
+    ).strip()
+
+
+def get_llm_action(
+    client: OpenAI,
+    step: int,
+    state: list,
+    last_reward: float,
+    task_id: str,
+) -> int:
+    """Call the LLM via OpenAI client and parse a 0/1 action."""
+    user_prompt = build_user_prompt(step, state, last_reward, task_id)
     try:
-        response = client.chat.completions.create(
+        completion = client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": user_prompt},
+            ],
             temperature=0.0,
-            max_tokens=5
+            max_tokens=5,
+            stream=False,
         )
-        return int(response.choices[0].message.content.strip())
-    except Exception as e:
-        print(f"\n[CRITICAL LLM ERROR] Proxy rejected call: {str(e)}\n")
-        # Fallback math if the LLM hiccups, ensuring the run doesn't crash
-        return 0 if state[0] + state[1] > state[2] + state[3] else 1
+        text = (completion.choices[0].message.content or "").strip()
+        return int(text[0]) if text and text[0] in ("0", "1") else _fallback_action(state)
+    except Exception as exc:
+        print(f"[DEBUG] LLM request failed: {exc}", flush=True)
+        return _fallback_action(state)
 
-def run_inference(task_id):
-    print(f"[START] task_id={task_id} total_steps=100")
-    
+
+def _fallback_action(state: list) -> int:
+    """Greedy heuristic: green the side with more waiting cars."""
+    return 0 if (state[0] + state[1]) >= (state[2] + state[3]) else 1
+
+
+# ── HTTP helpers ──────────────────────────────────────────────────────────────
+def env_reset(task_id: str) -> list:
+    res = requests.post(
+        f"{ENV_URL}/reset",
+        json={"task": task_id},
+        timeout=15,
+    )
+    res.raise_for_status()
+    return res.json().get("state", [0, 0, 0, 0, 0, 0])
+
+
+def env_step(action: int):
+    res = requests.post(
+        f"{ENV_URL}/step",
+        json={"action": action},
+        timeout=15,
+    )
+    res.raise_for_status()
+    data = res.json()
+    return (
+        data.get("state",  [0, 0, 0, 0, 0, 0]),
+        float(data.get("reward", 0.0)),
+        bool(data.get("done",   False)),
+        data.get("score",  0.0),   # server-side normalised score
+        data.get("info",   {}),
+    )
+
+
+# ── Main episode loop ─────────────────────────────────────────────────────────
+def run_inference(task_id: str) -> None:
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+
+    rewards: List[float] = []
+    steps_taken = 0
+    score        = 0.0
+    success      = False
+    state        = [0, 0, 0, 0, 0, 0]
+
+    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
+
     try:
-        res = requests.post(f"{ENV_URL}/reset", timeout=10)
-        res.raise_for_status() 
-        data = res.json()
-        state = data.get("state", [0, 0, 0, 0, 0, 0])
-        
-        total_reward = 0
-        success = True
-        step_num = 0
+        # ── Reset ──────────────────────────────────────────────
+        state = env_reset(task_id)
+        last_reward = 0.0
 
-        for step_num in range(100):
-            action = get_llm_action(state)
-            
+        # ── Step loop ──────────────────────────────────────────
+        for step in range(1, MAX_STEPS + 1):
+            action = get_llm_action(client, step, state, last_reward, task_id)
+            error_msg: Optional[str] = None
+
             try:
-                res = requests.post(f"{ENV_URL}/step", json={"action": action}, timeout=10)
-                res.raise_for_status()
-                data = res.json()
-                
-                state = data.get("state", state) 
-                reward = data.get("reward", 0.0)
-                done = data.get("done", False)
-                
-                total_reward += reward
-                print(f"[STEP] step={step_num} action={action} reward={reward:.2f} done={str(done).lower()} error=null")
-                
-                if done:
-                    break
-            except Exception as e:
-                print(f"[STEP] step={step_num} action={action} reward=0.0 done=true error={str(e)}")
-                success = False
+                state, reward, done, srv_score, info = env_step(action)
+            except Exception as exc:
+                error_msg = str(exc)
+                reward     = 0.0
+                done       = True
+                srv_score  = 0.0
+                success    = False
+
+            rewards.append(reward)
+            steps_taken  = step
+            last_reward  = reward
+
+            log_step(step=step, action=str(action), reward=reward, done=done, error=error_msg)
+
+            if done or error_msg:
                 break
 
-        # STRICT BOUNDARY COMPLIANCE: Score MUST be > 0 and < 1.
-        raw_score = (total_reward + 5000) / 5000
-        final_score = max(0.0001, min(0.9999, raw_score))
-        print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={total_reward:.2f}")
+        # ── Compute final normalised score ────────────────────
+        # Each step: best reward = 0, worst = -MAX_PENALTY_PER_STEP
+        # Shift so 0 → best (1.0), worst → floor (0.0)
+        total_raw   = sum(rewards)
+        worst_total = -MAX_PENALTY_PER_STEP * steps_taken
+        if worst_total != 0:
+            score = (total_raw - worst_total) / (0 - worst_total)
+        else:
+            score = 1.0
+        score   = float(min(max(score, 0.0), 1.0))   # clamp to [0, 1]
+        success = score >= SUCCESS_SCORE_THRESHOLD
 
-    except Exception as e:
-        # Even on a total failure, we return 0.0001 so the task isn't thrown out
-        print(f"[END] success=false steps=0 score=0.0001 rewards=0.0 error={str(e)}")
+    except Exception as exc:
+        print(f"[DEBUG] Episode failed: {exc}", flush=True)
+        success = False
+        score   = 0.0
 
+    finally:
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    # MULTI-TASK COMPLIANCE: Listen to the grader's command line arguments
-    if len(sys.argv) > 1:
-        current_task = sys.argv[1]
-    else:
-        current_task = "rush_hour_control"
-        
-    run_inference(task_id=current_task)
+    # Grader passes task name as the first CLI argument
+    task = sys.argv[1] if len(sys.argv) > 1 else os.getenv("TASK_NAME", "rush_hour_control")
+    run_inference(task_id=task)
