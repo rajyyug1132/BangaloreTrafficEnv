@@ -5,7 +5,7 @@ description: >
   An AI agent learns to dynamically control traffic signals to minimize
   congestion across North, South, East and West lanes.
 
-author: your-hf-username
+author: RyM1132
 
 observation_space:
   type: array
@@ -24,9 +24,8 @@ reward:
   range: [-inf, 0]
 
 score:
-  description: Normalised reward in 0.0–1.0 range for grader.
+  description: Normalised reward in 0.0-1.0 range for grader.
   range: [0.0, 1.0]
-
 
 environment:
   name: BangaloreTrafficEnv
@@ -35,15 +34,21 @@ environment:
 tasks:
   - id: rush_hour_control
     name: Rush Hour Traffic
-    grader: default
-  
+    description: Minimize congestion during peak traffic bursts (Poisson lambda=8) over 100 steps.
+    difficulty: hard
+    grader: graders:grade_rush_hour
+
   - id: off_peak_control
     name: Off Peak Traffic
-    grader: default
-  
+    description: Minimize congestion during standard traffic flow (Poisson lambda=3) over 100 steps.
+    difficulty: easy
+    grader: graders:grade_off_peak
+
   - id: sustained_flow
     name: Sustained Flow
-    grader: default
+    description: Maintain average queue size below 5 cars per lane over 100 steps.
+    difficulty: medium
+    grader: graders:grade_sustained_flow
 
 endpoints:
   reset: POST /reset
