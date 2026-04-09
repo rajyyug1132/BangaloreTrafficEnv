@@ -151,7 +151,7 @@ def run_inference(task_id: str) -> None:
 
     rewards: List[float] = []
     steps_taken = 0
-    score        = 0.0
+    score        = 0.001
     success      = False
     state        = [0, 0, 0, 0, 0, 0]
 
@@ -194,13 +194,13 @@ def run_inference(task_id: str) -> None:
             score = (total_raw - worst_total) / (0 - worst_total)
         else:
             score = 1.0
-        score   = float(min(max(score, 0.0), 1.0))   # clamp to [0, 1]
+        score   = float(min(max(score, 0.001), 0.999))   # :.3f prints "0.001"–"0.999", never "0.000" or "1.000"
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     except Exception as exc:
         print(f"[DEBUG] Episode failed: {exc}", flush=True)
         success = False
-        score   = 0.0
+        score   = 0.001   # must not be 0.0 — platform requires strictly > 0
 
     finally:
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)

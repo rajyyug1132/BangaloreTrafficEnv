@@ -5,16 +5,19 @@ TASK_CONFIGS = {
     "rush_hour_control": {
         "lam": 8,
         "max_steps": 100,
+        "difficulty": "hard",
         "description": "Peak traffic burst: Poisson lambda=8",
     },
     "off_peak_control": {
         "lam": 3,
         "max_steps": 100,
+        "difficulty": "easy",
         "description": "Standard traffic flow: Poisson lambda=3",
     },
     "sustained_flow": {
         "lam": 5,
         "max_steps": 100,
+        "difficulty": "medium",
         "queue_threshold": 5,
         "description": "Maintain average queue < 5 per lane over 100 steps",
     },
@@ -87,19 +90,19 @@ class BangaloreTrafficEnv:
         return self.state(), reward, done, info
 
     def compute_score(self, reward: float) -> float:
-        """Return normalised score in [0.0, 1.0] for the current task."""
+        """Return normalised score strictly in (0.0, 1.0) for the current task."""
         if self.task_id == "sustained_flow":
-            # Score based on whether average queue stays below threshold
             if self._steps_counted == 0:
-                return 0.0
+                return 0.001
             avg_queue = self._total_queue_sum / (self._steps_counted * 4)
             threshold = self.config.get("queue_threshold", 5)
-            # Full score if avg < threshold, degrades linearly after
-            return float(np.clip(1.0 - max(0, avg_queue - threshold) / threshold, 0.0, 1.0))
+            score = 1.0 - max(0, avg_queue - threshold) / threshold
+            return float(np.clip(score, 0.001, 0.999))
         else:
             # Worst case per step: 4 lanes × 20 cars = 80 waiting
             max_penalty = 80
-            return float(np.clip((reward + max_penalty) / max_penalty, 0.0, 1.0))
+            score = (reward + max_penalty) / max_penalty
+            return float(np.clip(score, 0.001, 0.999))
 
     def state(self):
         return np.array(self.queues + [self.green_phase, self.time_step], dtype=np.float32)
