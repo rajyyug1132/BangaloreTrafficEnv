@@ -27,7 +27,7 @@ score:
   description: Normalised reward in 0.0–1.0 range for grader.
   range: [0.0, 1.0]
 
-version: 1.0
+
 environment:
   name: BangaloreTrafficEnv
   url: https://rym1132-bangaloretrafficenv.hf.space
