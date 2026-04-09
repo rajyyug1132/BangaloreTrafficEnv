@@ -27,19 +27,24 @@ score:
   description: Normalised reward in 0.0–1.0 range for grader.
   range: [0.0, 1.0]
 
+version: 1.0
+environment:
+  name: BangaloreTrafficEnv
+  url: https://rym1132-bangaloretrafficenv.hf.space
+
 tasks:
   - id: rush_hour_control
     name: Rush Hour Traffic
-    grader: default # This enables the grader for Task 1
+    grader: default
   
   - id: off_peak_control
     name: Off Peak Traffic
-    grader: default # This enables the grader for Task 2
+    grader: default
   
   - id: sustained_flow
     name: Sustained Flow
-    grader: default # This enables the grader for Task 3
-    
+    grader: default
+
 endpoints:
   reset: POST /reset
   step:  POST /step
