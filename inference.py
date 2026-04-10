@@ -211,13 +211,9 @@ ALL_TASKS = ["rush_hour_control", "off_peak_control", "sustained_flow"]
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        # Grader called with a specific task — run only that one
+        # Grader passed a specific task as argument
         run_inference(task_id=sys.argv[1])
     else:
-        # No task specified — run all 3 tasks so grader gets a score for each
-        task_env = os.getenv("TASK_NAME")
-        if task_env:
-            run_inference(task_id=task_env)
-        else:
-            for task_id in ALL_TASKS:
-                run_inference(task_id=task_id)
+        # Always run all 3 — never let an env var short-circuit this
+        for task_id in ALL_TASKS:
+            run_inference(task_id=task_id)
