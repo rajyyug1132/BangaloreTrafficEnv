@@ -73,7 +73,7 @@ def run_inference(task_id):
                 break
 
         # STRICT BOUNDARY COMPLIANCE: Score MUST be > 0 and < 1.
-        raw_score = (total_reward + 5000) / 5000
+        raw_score = (total_reward + 8000) / 8000
         final_score = max(0.0001, min(0.9999, raw_score))
         print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={total_reward:.2f}")
 

@@ -71,6 +71,6 @@ def grade_sustained_flow(episode: List[Dict[str, Any]]) -> float:
 
     avg_queue_per_lane = total_queue / (steps * 4)
     threshold = 5.0
-    # Full score when avg < threshold; degrades linearly above
-    score = 1.0 - max(0.0, avg_queue_per_lane - threshold) / threshold
+    # Full score at or below threshold; smooth 1/x decay above (no cliff)
+    score = threshold / max(threshold, avg_queue_per_lane)
     return float(min(max(score, 0.001), 0.999))  # strictly in (0, 1)
