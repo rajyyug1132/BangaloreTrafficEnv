@@ -85,7 +85,7 @@ def list_tasks():
                 "id": task_id,
                 "name": cfg.get("description", task_id),
                 "difficulty": cfg.get("difficulty", "medium"),
-                "grader": "default",
+                "grader": TASK_GRADERS.get(task_id, "default"),
             }
             for task_id, cfg in TASK_CONFIGS.items()
         ]

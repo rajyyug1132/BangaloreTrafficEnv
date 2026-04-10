@@ -38,10 +38,10 @@ def get_llm_action(state):
         return 0 if state[0] + state[1] > state[2] + state[3] else 1
 
 def run_inference(task_id):
-    print(f"[START] task_id={task_id} total_steps=100")
-    
+    print(f"[START] task={task_id} env=BangaloreTrafficEnv model={MODEL_NAME}", flush=True)
+
     try:
-        res = requests.post(f"{ENV_URL}/reset", timeout=10)
+        res = requests.post(f"{ENV_URL}/reset", json={"task": task_id}, timeout=10)
         res.raise_for_status() 
         data = res.json()
         state = data.get("state", [0, 0, 0, 0, 0, 0])
