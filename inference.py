@@ -207,7 +207,17 @@ def run_inference(task_id: str) -> None:
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+ALL_TASKS = ["rush_hour_control", "off_peak_control", "sustained_flow"]
+
 if __name__ == "__main__":
-    # Grader passes task name as the first CLI argument
-    task = sys.argv[1] if len(sys.argv) > 1 else os.getenv("TASK_NAME", "rush_hour_control")
-    run_inference(task_id=task)
+    if len(sys.argv) > 1:
+        # Grader called with a specific task — run only that one
+        run_inference(task_id=sys.argv[1])
+    else:
+        # No task specified — run all 3 tasks so grader gets a score for each
+        task_env = os.getenv("TASK_NAME")
+        if task_env:
+            run_inference(task_id=task_env)
+        else:
+            for task_id in ALL_TASKS:
+                run_inference(task_id=task_id)
