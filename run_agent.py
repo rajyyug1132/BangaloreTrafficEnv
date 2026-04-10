@@ -38,10 +38,10 @@ def get_llm_action(state):
         return 0 if state[0] + state[1] > state[2] + state[3] else 1
 
 def run_inference(task_id):
-    print(f"[START] task_id={task_id} total_steps=100")
-    
+    print(f"[START] task={task_id} env=BangaloreTrafficEnv model={MODEL_NAME}", flush=True)
+
     try:
-        res = requests.post(f"{ENV_URL}/reset", timeout=10)
+        res = requests.post(f"{ENV_URL}/reset", json={"task": task_id}, timeout=10)
         res.raise_for_status() 
         data = res.json()
         state = data.get("state", [0, 0, 0, 0, 0, 0])
@@ -73,7 +73,7 @@ def run_inference(task_id):
                 break
 
         # STRICT BOUNDARY COMPLIANCE: Score MUST be > 0 and < 1.
-        raw_score = (total_reward + 5000) / 5000
+        raw_score = (total_reward + 8000) / 8000
         final_score = max(0.0001, min(0.9999, raw_score))
         print(f"[END] success={str(success).lower()} steps={step_num + 1} score={final_score:.4f} rewards={total_reward:.2f}")
 

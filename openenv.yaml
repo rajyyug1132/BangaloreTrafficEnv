@@ -36,19 +36,19 @@ tasks:
     name: Rush Hour Traffic
     description: Minimize congestion during peak traffic bursts (Poisson lambda=8) over 100 steps.
     difficulty: hard
-    grader: default
+    grader: graders:grade_rush_hour
 
   - id: off_peak_control
     name: Off Peak Traffic
     description: Minimize congestion during standard traffic flow (Poisson lambda=3) over 100 steps.
     difficulty: easy
-    grader: default
+    grader: graders:grade_off_peak
 
   - id: sustained_flow
     name: Sustained Flow
     description: Maintain average queue size below 5 cars per lane over 100 steps.
     difficulty: medium
-    grader: default
+    grader: graders:grade_sustained_flow
 
 endpoints:
   reset: POST /reset
