@@ -1,21 +1,27 @@
 import numpy as np
 
+# Shared constant — worst-case reward per step: 4 lanes × ~20 cars
+MAX_PENALTY_PER_STEP = 80.0
+
 # Task configurations
 TASK_CONFIGS = {
     "rush_hour_control": {
         "lam": 8,
+        "arrival_lam": 3,
         "max_steps": 100,
         "difficulty": "hard",
         "description": "Peak traffic burst: Poisson lambda=8",
     },
     "off_peak_control": {
         "lam": 3,
+        "arrival_lam": 1,
         "max_steps": 100,
         "difficulty": "easy",
         "description": "Standard traffic flow: Poisson lambda=3",
     },
     "sustained_flow": {
         "lam": 5,
+        "arrival_lam": 2,
         "max_steps": 100,
         "difficulty": "medium",
         "queue_threshold": 5,
@@ -35,8 +41,10 @@ class BangaloreTrafficEnv:
         self.time_step = 0
         self.max_steps = self.config["max_steps"]
         self.lam = self.config["lam"]
-        # For sustained_flow: track cumulative average queue
+        self.arrival_lam = self.config["arrival_lam"]
+        # Episode-level tracking for scoring
         self._total_queue_sum = 0
+        self._total_reward = 0.0
         self._steps_counted = 0
 
     def reset(self, task_id: str = None):
@@ -45,11 +53,13 @@ class BangaloreTrafficEnv:
             self.config = TASK_CONFIGS[self.task_id]
             self.max_steps = self.config["max_steps"]
             self.lam = self.config["lam"]
+            self.arrival_lam = self.config["arrival_lam"]
 
         self.queues = [np.random.poisson(self.lam) for _ in range(4)]
         self.green_phase = 0
         self.time_step = 0
         self._total_queue_sum = 0
+        self._total_reward = 0.0
         self._steps_counted = 0
         return self.state()
 
@@ -63,14 +73,15 @@ class BangaloreTrafficEnv:
             self.queues[2] = max(0, self.queues[2] - 3)
             self.queues[3] = max(0, self.queues[3] - 3)
 
-        # New arrivals
-        arrivals = [np.random.poisson(max(1, self.lam // 3)) for _ in range(4)]
+        # New arrivals — each task has a distinct arrival_lam for difficulty separation
+        arrivals = [np.random.poisson(self.arrival_lam) for _ in range(4)]
         self.queues = [q + a for q, a in zip(self.queues, arrivals)]
 
         reward = -sum(self.queues)
 
-        # Track for sustained_flow grading
+        # Episode-level tracking for scoring
         self._total_queue_sum += sum(self.queues)
+        self._total_reward += reward
         self._steps_counted += 1
 
         self.time_step += 1
@@ -90,18 +101,24 @@ class BangaloreTrafficEnv:
         return self.state(), reward, done, info
 
     def compute_score(self, reward: float) -> float:
-        """Return normalised score strictly in (0.0, 1.0) for the current task."""
+        """Return normalised score strictly in (0.0, 1.0) for the current task.
+
+        Uses episode-level cumulative data, consistent with graders.py.
+        """
         if self.task_id == "sustained_flow":
             if self._steps_counted == 0:
                 return 0.001
             avg_queue = self._total_queue_sum / (self._steps_counted * 4)
             threshold = self.config.get("queue_threshold", 5)
-            score = 1.0 - max(0, avg_queue - threshold) / threshold
+            score = threshold / max(threshold, avg_queue)
             return float(np.clip(score, 0.001, 0.999))
         else:
-            # Worst case per step: 4 lanes × 20 cars = 80 waiting
-            max_penalty = 80
-            score = (reward + max_penalty) / max_penalty
+            if self._steps_counted == 0:
+                return 0.001
+            worst = -MAX_PENALTY_PER_STEP * self._steps_counted
+            if worst == 0:
+                return 0.999
+            score = (self._total_reward - worst) / (0.0 - worst)
             return float(np.clip(score, 0.001, 0.999))
 
     def state(self):

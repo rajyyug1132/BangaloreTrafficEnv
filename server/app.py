@@ -1,5 +1,5 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 from typing import Optional
 from server.traffic_env import BangaloreTrafficEnv, TASK_CONFIGS
 
@@ -18,7 +18,7 @@ class ResetRequest(BaseModel):
     task: Optional[str] = None
 
 class StepRequest(BaseModel):
-    action: int   # 0 = NS green, 1 = EW green
+    action: int = Field(..., ge=0, le=1, description="0 = NS green, 1 = EW green")
 
 class StepResponse(BaseModel):
     state: list
@@ -94,24 +94,33 @@ def list_tasks():
 @app.post("/reset", response_model=ResetResponse)
 def reset(req: ResetRequest = ResetRequest()):
     """Reset the environment. Optionally pass a task id to switch scenarios."""
-    state = env.reset(task_id=req.task)
-    return {"state": state.tolist(), "task": env.task_id}
+    try:
+        state = env.reset(task_id=req.task)
+        return {"state": state.tolist(), "task": env.task_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/step", response_model=StepResponse)
 def step(req: StepRequest):
-    state, reward, done, info = env.step(req.action)
-    score = env.compute_score(reward)
-    return {
-        "state": state.tolist(),
-        "reward": reward,
-        "done": done,
-        "info": info,
-        "score": score,
-    }
+    try:
+        state, reward, done, info = env.step(req.action)
+        score = env.compute_score(reward)
+        return {
+            "state": state.tolist(),
+            "reward": reward,
+            "done": done,
+            "info": info,
+            "score": score,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @app.get("/state", response_model=StateResponse)
 def get_state():
-    return {"state": env.state().tolist()}
+    try:
+        return {"state": env.state().tolist()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 def main():

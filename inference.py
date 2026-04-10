@@ -34,6 +34,9 @@ SUCCESS_SCORE_THRESHOLD = 0.5   # normalised score in [0, 1]
 # Best case: reward = 0  →  score = 1.0
 MAX_PENALTY_PER_STEP = 80.0
 
+# Reuse a single client across all 3 task runs (avoids re-creating connection pool)
+_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY, timeout=20.0)
+
 SYSTEM_PROMPT = textwrap.dedent(
     """
     You are an intelligent traffic light controller at a busy Bangalore intersection.
@@ -147,8 +150,6 @@ def env_step(action: int):
 
 # ── Main episode loop ─────────────────────────────────────────────────────────
 def run_inference(task_id: str) -> None:
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-
     rewards: List[float] = []
     steps_taken = 0
     score        = 0.001
@@ -164,7 +165,7 @@ def run_inference(task_id: str) -> None:
 
         # ── Step loop ──────────────────────────────────────────
         for step in range(1, MAX_STEPS + 1):
-            action = get_llm_action(client, step, state, last_reward, task_id)
+            action = get_llm_action(_client, step, state, last_reward, task_id)
             error_msg: Optional[str] = None
 
             try:
