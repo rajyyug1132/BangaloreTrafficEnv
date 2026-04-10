@@ -78,14 +78,14 @@ def root():
 
 @app.get("/tasks")
 def list_tasks():
-    """List all available tasks — grader field must NOT be 'default'."""
+    """List all available tasks."""
     return {
         "tasks": [
             {
                 "id": task_id,
                 "name": cfg.get("description", task_id),
                 "difficulty": cfg.get("difficulty", "medium"),
-                "grader": TASK_GRADERS[task_id],   # real callable path, never "default"
+                "grader": "default",
             }
             for task_id, cfg in TASK_CONFIGS.items()
         ]
