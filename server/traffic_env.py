@@ -21,7 +21,9 @@ TASK_CONFIGS = {
     },
     "sustained_flow": {
         "lam": 5,
-        "arrival_lam": 2,
+        # arrival_lam=2 made the task unwinnable (8 arrivals/step vs 6 max
+        # discharge); 1 keeps avg-queue<5 achievable, per task description
+        "arrival_lam": 1,
         "max_steps": 100,
         "difficulty": "medium",
         "queue_threshold": 5,
