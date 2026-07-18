@@ -1,6 +1,18 @@
+"""HTTP interface for BangaloreTrafficEnv (FastAPI).
+
+Exposes the endpoints required by the OpenEnv platform validator:
+/health, /metadata, /schema, /tasks, /reset, /step, /state.
+
+Note: a single global env instance backs all requests — concurrent
+episodes against one server will interleave (single-worker deploy assumed;
+see Dockerfile ``--workers 1``).
+"""
+
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
+
 from server.traffic_env import BangaloreTrafficEnv, TASK_CONFIGS
 
 app = FastAPI(title="BangaloreTrafficEnv", version="1.0")

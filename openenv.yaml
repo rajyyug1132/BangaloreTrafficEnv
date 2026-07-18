@@ -57,5 +57,5 @@ endpoints:
 
 runtime:
   language: python
-  entry: app.py
+  entry: server/app.py
   port: 7860

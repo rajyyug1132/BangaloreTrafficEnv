@@ -8,6 +8,10 @@ pinned: false
 
 # BangaloreTrafficEnv
 
+[![CI](https://github.com/rajyyug1132/BangaloreTrafficEnv/actions/workflows/ci.yml/badge.svg)](https://github.com/rajyyug1132/BangaloreTrafficEnv/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![HF Space](https://img.shields.io/badge/%F0%9F%A4%97%20Space-live-blue)](https://huggingface.co/spaces/RyM1132/BangaloreTrafficEnv)
+
 BangaloreTrafficEnv is a Reinforcement Learning environment simulating a high-volume
 traffic intersection in Bangalore. Fixed-duration traffic signals cannot adapt to
 real-time vehicle flow; this environment lets agents learn dynamic signal switching
@@ -92,3 +96,39 @@ Training and evaluation wrap the simulator in-process via `gym_env.py`
 uvicorn server.app:app --reload --port 7860   # start the FastAPI env server
 python inference.py rush_hour_control          # LLM-driven agent over HTTP
 ```
+
+### HTTP API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Liveness probe |
+| `/metadata` | GET | Env name, description, version |
+| `/schema` | GET | Action / observation space schema |
+| `/tasks` | GET | Available tasks with difficulty and grader paths |
+| `/reset` | POST | Start an episode; body `{"task": "<id>"}` switches task |
+| `/step` | POST | Body `{"action": 0\|1}` → state, reward, done, info, score |
+| `/state` | GET | Current observation |
+
+## Repository layout
+
+```
+server/            simulator (traffic_env.py) + FastAPI app (app.py)
+graders.py         episode scoring callables (referenced by openenv.yaml)
+inference.py       LLM agent over HTTP, platform stdout format
+run_agent.py       backwards-compatible wrapper around inference.py
+gym_env.py         gymnasium wrapper (in-process, for training)
+train_ppo.py       per-task PPO training (stable-baselines3)
+baselines.py       fixed-timer and greedy controllers
+eval.py            50-episode comparison → results.csv
+plot_results.py    results.csv → results_comparison.png
+tests/             pytest suite (env dynamics, graders, API contract)
+```
+
+## Development
+
+```bash
+pip install -e ".[test,train]"
+pytest tests/ -v
+```
+
+Licensed under the [MIT License](LICENSE).

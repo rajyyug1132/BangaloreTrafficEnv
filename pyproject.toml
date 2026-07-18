@@ -4,10 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bangaloretrafficenv"
-version = "1.0.0"
-description = "Bangalore Traffic RL Environment"
+version = "1.1.0"
+description = "RL environment simulating a Bangalore traffic intersection, with PPO training and baselines"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
+authors = [{ name = "rajyyug1132" }]
 dependencies = [
     "fastapi",
     "uvicorn",
@@ -16,8 +18,16 @@ dependencies = [
     "openai",
     "pydantic",
     "requests",
-    "openenv-core>=0.2.0"
+    "openenv-core>=0.2.0",
 ]
+
+[project.optional-dependencies]
+train = ["stable-baselines3", "gymnasium", "tensorboard"]
+test = ["pytest", "httpx"]
+
+[project.urls]
+Repository = "https://github.com/rajyyug1132/BangaloreTrafficEnv"
+Space = "https://huggingface.co/spaces/RyM1132/BangaloreTrafficEnv"
 
 [project.scripts]
 server = "server.app:main"
