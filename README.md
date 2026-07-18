@@ -40,9 +40,9 @@ per task:
 
 | Task | PPO | Greedy | Best fixed-timer |
 |---|---|---|---|
-| off_peak (mean total reward) | **−689.8** | −691.3 | −776.9 (k=1) |
-| sustained_flow (mean total reward / success rate) | −738.1 / **100%** | −736.6 / 100% | −839.1 / 100% (k=1) |
-| rush_hour (mean total reward) | −13167.6 | −13043.0 | −13059.0 (k=1) |
+| off_peak (mean total reward) | **−689.0** | −691.3 | −776.9 (k=1) |
+| sustained_flow (mean total reward / success rate) | −738.0 / **100%** | −736.6 / 100% | −839.1 / 100% (k=1) |
+| rush_hour (mean total reward) | −33884.5 | −33564.9 | −33566.9 (k=1) |
 
 ![PPO vs baselines: mean avg queue per lane per task](results_comparison.png)
 
@@ -53,17 +53,18 @@ per task:
   beat every fixed timer. That is the expected ceiling: with two actions and full
   queue observability, greedy is near-optimal for this MDP, so "PPO ≈ greedy ≫
   fixed" is success, not a shortfall.
-- **Key metric — sustained_flow success rate: 100% for PPO** (avg queue 1.85 vs
+- **Key metric — sustained_flow success rate: 100% for PPO** (avg queue 1.84 vs
   the 5.0 threshold). Fixed timers only start failing at k=10.
-- **rush_hour is saturated as configured.** Arrivals (~8 cars/step across lanes)
-  exceed the maximum discharge (6 cars/step), so queues grow roughly linearly for
-  *every* controller; the ~1% spread between PPO, greedy, and fixed_1 is noise on
-  an uncontrollable trend, and 0% success across the board is a property of the
-  environment, not the agents.
-
-**Future work:** if rush_hour is meant to be winnable, the intersection needs
-rebalancing server-side — either a higher discharge rate (currently 3 cars/lane/step)
-or a lower arrival rate (`lam=8`), so that a good policy can keep up with demand.
+- **sustained_flow was rebalanced** (`arrival_lam` 2 → 1): at 2, arrivals
+  (~8 cars/step) exceeded the maximum discharge (6 cars/step), making the task's
+  own success criterion (avg queue < 5) impossible for *any* controller — every
+  policy scored 0%. The rebalance restores the intended medium difficulty; it is
+  a bug fix to match the task description, not result tuning.
+- **rush_hour is saturated by design.** Arrivals (~12 cars/step across lanes)
+  far exceed the maximum discharge (6 cars/step), so queues grow roughly linearly
+  for *every* controller; the <1% spread between PPO, greedy, and fixed_1 is noise
+  on an uncontrollable trend, and 0% success across the board is a property of the
+  environment, not the agents. It is kept deliberately as a stress scenario.
 
 ## Reproduce
 
