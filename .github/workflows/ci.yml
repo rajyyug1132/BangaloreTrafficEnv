@@ -19,4 +19,5 @@ jobs:
           pip install -r requirements.txt
           pip install pytest httpx
       - name: Run tests
-        run: pytest tests/ -v
+        # python -m puts the repo root on sys.path (tests import `server`)
+        run: python -m pytest tests/ -v
