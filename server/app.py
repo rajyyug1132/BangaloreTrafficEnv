@@ -10,20 +10,13 @@ see Dockerfile ``--workers 1``).
 
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 from server.traffic_env import BangaloreTrafficEnv, TASK_CONFIGS
 
 app = FastAPI(title="BangaloreTrafficEnv", version="1.0")
 env = BangaloreTrafficEnv()
-
-# Grader callable paths — must match openenv.yaml and graders.py exactly
-TASK_GRADERS = {
-    "rush_hour_control": "graders:grade_rush_hour",
-    "off_peak_control":  "graders:grade_off_peak",
-    "sustained_flow":    "graders:grade_sustained_flow",
-}
 
 # ── Data models ──────────────────────────────────────────
 class ResetRequest(BaseModel):
@@ -97,7 +90,7 @@ def list_tasks():
                 "id": task_id,
                 "name": cfg.get("description", task_id),
                 "difficulty": cfg.get("difficulty", "medium"),
-                "grader": TASK_GRADERS.get(task_id, "default"),
+                "grader": cfg["grader"],
             }
             for task_id, cfg in TASK_CONFIGS.items()
         ]
@@ -106,33 +99,23 @@ def list_tasks():
 @app.post("/reset", response_model=ResetResponse)
 def reset(req: ResetRequest = ResetRequest()):
     """Reset the environment. Optionally pass a task id to switch scenarios."""
-    try:
-        state = env.reset(task_id=req.task)
-        return {"state": state.tolist(), "task": env.task_id}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    state = env.reset(task_id=req.task)
+    return {"state": state.tolist(), "task": env.task_id}
 
 @app.post("/step", response_model=StepResponse)
 def step(req: StepRequest):
-    try:
-        state, reward, done, info = env.step(req.action)
-        score = env.compute_score(reward)
-        return {
-            "state": state.tolist(),
-            "reward": reward,
-            "done": done,
-            "info": info,
-            "score": score,
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    state, reward, done, info = env.step(req.action)
+    return {
+        "state": state.tolist(),
+        "reward": reward,
+        "done": done,
+        "info": info,
+        "score": env.compute_score(),
+    }
 
 @app.get("/state", response_model=StateResponse)
 def get_state():
-    try:
-        return {"state": env.state().tolist()}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    return {"state": env.state().tolist()}
 
 
 def main():

@@ -87,8 +87,7 @@ def test_compute_score_strictly_in_open_interval(task_id):
     np.random.seed(1)
     env = BangaloreTrafficEnv(task_id)
     env.reset()
-    assert env.compute_score(0.0) >= 0.001  # before any step
+    assert env.compute_score() >= 0.001  # before any step
     for _ in range(10):
-        _, reward, _, _ = env.step(1)
-    score = env.compute_score(reward)
-    assert 0.001 <= score <= 0.999
+        env.step(1)
+    assert 0.001 <= env.compute_score() <= 0.999

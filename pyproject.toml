@@ -28,6 +28,3 @@ test = ["pytest", "httpx"]
 [project.urls]
 Repository = "https://github.com/rajyyug1132/BangaloreTrafficEnv"
 Space = "https://huggingface.co/spaces/RyM1132/BangaloreTrafficEnv"
-
-[project.scripts]
-server = "server.app:main"

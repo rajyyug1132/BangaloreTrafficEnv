@@ -41,13 +41,9 @@ def grade_rush_hour(episode: List[Dict[str, Any]]) -> float:
     return _reward_to_score(rewards)
 
 
-def grade_off_peak(episode: List[Dict[str, Any]]) -> float:
-    """
-    Off Peak Traffic (Easy) — Poisson lambda=3.
-    Score = normalised cumulative reward over 100 steps.
-    """
-    rewards = [step.get("reward", 0.0) for step in episode]
-    return _reward_to_score(rewards)
+# Off Peak Traffic (Easy) — identical scoring, kept as a named callable
+# because openenv.yaml references graders:grade_off_peak
+grade_off_peak = grade_rush_hour
 
 
 def grade_sustained_flow(episode: List[Dict[str, Any]]) -> float:

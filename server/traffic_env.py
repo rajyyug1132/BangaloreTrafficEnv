@@ -28,6 +28,7 @@ TASK_CONFIGS: dict = {
         "max_steps": 100,
         "difficulty": "hard",
         "description": "Peak traffic burst: Poisson lambda=8",
+        "grader": "graders:grade_rush_hour",  # callable path, must match openenv.yaml
     },
     "off_peak_control": {
         "lam": 3,
@@ -35,6 +36,7 @@ TASK_CONFIGS: dict = {
         "max_steps": 100,
         "difficulty": "easy",
         "description": "Standard traffic flow: Poisson lambda=3",
+        "grader": "graders:grade_off_peak",
     },
     "sustained_flow": {
         "lam": 5,
@@ -45,6 +47,7 @@ TASK_CONFIGS: dict = {
         "difficulty": "medium",
         "queue_threshold": 5,
         "description": "Maintain average queue < 5 per lane over 100 steps",
+        "grader": "graders:grade_sustained_flow",
     },
 }
 
@@ -125,7 +128,7 @@ class BangaloreTrafficEnv:
     def _avg_queue_per_lane(self) -> float:
         return self._total_queue_sum / (self._steps_counted * 4)
 
-    def compute_score(self, reward: float) -> float:
+    def compute_score(self) -> float:
         """Normalised episode score strictly in (0.0, 1.0), consistent with graders.py.
 
         sustained_flow: full score at/below the queue threshold, smooth 1/x

@@ -20,7 +20,6 @@ from openai import OpenAI
 API_BASE_URL     = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME       = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN         = os.getenv("HF_TOKEN")
-LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")   # optional: used only with from_docker_image()
 
 # Derived helpers
 ENV_URL  = os.getenv("ENV_URL", "https://rym1132-bangaloretrafficenv.hf.space")
@@ -143,8 +142,6 @@ def env_step(action: int):
         data.get("state",  [0, 0, 0, 0, 0, 0]),
         float(data.get("reward", 0.0)),
         bool(data.get("done",   False)),
-        data.get("score",  0.0),   # server-side normalised score
-        data.get("info",   {}),
     )
 
 
@@ -169,12 +166,11 @@ def run_inference(task_id: str) -> None:
             error_msg: Optional[str] = None
 
             try:
-                state, reward, done, srv_score, info = env_step(action)
+                state, reward, done = env_step(action)
             except Exception as exc:
                 error_msg = str(exc)
                 reward     = 0.0
                 done       = True
-                srv_score  = 0.0
                 success    = False
 
             rewards.append(reward)
