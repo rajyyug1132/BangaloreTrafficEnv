@@ -34,7 +34,9 @@ SUCCESS_SCORE_THRESHOLD = 0.5   # normalised score in [0, 1]
 MAX_PENALTY_PER_STEP = 80.0
 
 # Reuse a single client across all 3 task runs (avoids re-creating connection pool)
-_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY, timeout=20.0)
+# "unset" placeholder: without credentials the client would raise at import;
+# this defers failure to per-call, where get_llm_action falls back to greedy
+_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "unset", timeout=20.0)
 
 SYSTEM_PROMPT = textwrap.dedent(
     """
