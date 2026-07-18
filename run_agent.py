@@ -41,7 +41,7 @@ def run_inference(task_id):
     print(f"[START] task_id={task_id} total_steps=100")
     
     try:
-        res = requests.post(f"{ENV_URL}/reset", timeout=10)
+        res = requests.post(f"{ENV_URL}/reset", json={"task": task_id}, timeout=10)
         res.raise_for_status() 
         data = res.json()
         state = data.get("state", [0, 0, 0, 0, 0, 0])
